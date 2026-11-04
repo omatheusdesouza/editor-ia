@@ -1,0 +1,7 @@
+anthropic>=2.4.0
+pydantic>=2.7
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9
+# Opcional (legendas automáticas / cortes por fala). Sem ele o app funciona, só sem transcrição.
+faster-whisper>=1.0

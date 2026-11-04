@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Editor IA</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg">
+<link rel="apple-touch-icon" href="/icon.svg">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  :root { --bg:#0f1115; --panel:#181b22; --line:#2a2f3a; --text:#e8eaf0; --muted:#9aa3b2; --accent:#7c5cff; --ok:#2fbf71; --err:#ff5c7a; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+  header { position:sticky; top:0; z-index:5; background:rgba(15,17,21,.92); backdrop-filter:blur(8px); padding:12px 16px; padding-top:max(12px, env(safe-area-inset-top)); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  header h1 { margin:0; font-size:18px; flex:1; cursor:pointer; }
+  header a { color:var(--muted); font-size:14px; text-decoration:none; }
+  main { max-width:1100px; margin:0 auto; padding:16px; display:grid; gap:16px; padding-bottom:max(24px, env(safe-area-inset-bottom)); }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  h2 { margin:0 0 12px; font-size:16px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:12px 0 6px; }
+  input[type=text], input[type=number], select, textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:9px; padding:11px; font:inherit; font-size:16px; }
+  textarea { min-height:96px; resize:vertical; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
+  .drop { border:2px dashed var(--line); border-radius:12px; padding:26px 14px; text-align:center; color:var(--muted); cursor:pointer; }
+  .drop.over { border-color:var(--accent); color:var(--text); }
+  .drop strong { color:var(--text); display:block; font-size:17px; margin-bottom:4px; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:10px; padding:13px 18px; font:inherit; font-weight:600; cursor:pointer; }
+  button.secondary { background:transparent; border:1px solid var(--line); color:var(--text); }
+  button.danger { background:transparent; border:1px solid var(--line); color:var(--err); }
+  button:disabled { opacity:.5; cursor:default; }
+  .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  .bar { height:8px; background:var(--bg); border-radius:99px; overflow:hidden; margin:10px 0; }
+  .bar > div { height:100%; width:0; background:var(--accent); transition:width .4s; }
+  pre.log { max-height:160px; overflow:auto; background:#0b0d11; padding:10px; border-radius:8px; font-size:12px; color:var(--muted); white-space:pre-wrap; margin:0; }
+  details summary { cursor:pointer; color:var(--muted); font-size:14px; margin-top:8px; }
+  .grid2 { display:grid; grid-template-columns: minmax(0, 380px) 1fr; gap:20px; }
+  video { width:100%; max-height:72vh; background:#000; border-radius:12px; display:block; }
+  .timeline { display:flex; height:40px; border-radius:8px; overflow:hidden; margin:10px 0 14px; }
+  .timeline div { border-right:2px solid var(--panel); font-size:11px; padding:4px; overflow:hidden; white-space:nowrap; color:#fff; }
+  .seg { border-left:3px solid var(--accent); padding:7px 10px; margin:6px 0; background:#11141a; border-radius:6px; font-size:14px; }
+  .seg small { color:var(--muted); display:block; }
+  .pill { display:inline-block; font-size:11px; padding:1px 8px; border-radius:99px; background:#262b36; color:var(--muted); margin-left:4px; }
+  .status { font-weight:600; } .status.erro { color:var(--err); } .status.pronto { color:var(--ok); }
+  .hidden { display:none !important; }
+  .files { font-size:13px; color:var(--muted); margin-top:8px; word-break:break-word; }
+  .projects { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:12px; }
+  .card { background:#11141a; border:1px solid var(--line); border-radius:12px; overflow:hidden; cursor:pointer; }
+  .card .th { aspect-ratio:16/10; background:#0b0d11 center/cover no-repeat; }
+  .card .info { padding:8px 10px; font-size:13px; }
+  .card .info b { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card .info span { color:var(--muted); font-size:12px; }
+  .empty { color:var(--muted); font-size:14px; }
+  @media (max-width: 800px) {
+    .grid2 { grid-template-columns: 1fr; }
+    .actions button { flex:1; }
+    #go { width:100%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="home">🎬 Editor IA</h1>
+  <a href="#" id="newBtn">+ Novo</a>
+  <a href="/logout">Sair</a>
+</header>
+<main>
+  <!-- NOVO PROJETO -->
+  <section class="panel" id="newPanel">
+    <h2>Novo vídeo</h2>
+    <div class="drop" id="drop">
+      <strong>📁 Escolher cortes</strong>
+      da galeria, câmera ou arquivos — pode selecionar vários
+      <input type="file" id="clips" accept="video/*" multiple hidden>
+      <div class="files" id="fileList"></div>
+    </div>
+    <label for="brief">O que você quer? (estilo, público, mensagem, chamada final)</label>
+    <textarea id="brief" placeholder="Ex.: Reels de 40s da formatura. Ritmo animado, começar com a reação dos alunos, mostrar a palestra e terminar com 'Inscrições abertas para 2027'."></textarea>
+    <div class="row">
+      <div><label for="aspect">Formato</label>
+        <select id="aspect"><option value="9:16">9:16 Reels/TikTok</option><option value="16:9">16:9 YouTube</option><option value="1:1">1:1 Feed</option><option value="4:5">4:5 Feed</option></select></div>
+      <div><label for="seconds">Duração (s)</label><input type="number" id="seconds" inputmode="numeric" placeholder="auto" min="5"></div>
+      <div><label for="captions">Legendas</label><select id="captions"><option value="true">Sim</option><option value="false">Não</option></select></div>
+    </div>
+    <label for="music">Trilha sonora (opcional)</label>
+    <input type="file" id="music" accept="audio/*">
+    <div id="upWrap" class="hidden"><div class="bar"><div id="upBar"></div></div><small id="upTxt" style="color:var(--muted)"></small></div>
+    <div class="actions"><button id="go">✨ Editar com IA</button></div>
+  </section>
+
+  <!-- LISTA -->
+  <section class="panel" id="listPanel">
+    <h2>Meus vídeos</h2>
+    <div class="projects" id="projects"></div>
+  </section>
+
+  <!-- PROJETO ABERTO -->
+  <section class="panel hidden" id="jobPanel">
+    <h2>Processamento <span class="status" id="status"></span></h2>
+    <div class="bar"><div id="bar"></div></div>
+    <small style="color:var(--muted)">Pode fechar esta página — o servidor continua trabalhando. Volte depois em "Meus vídeos".</small>
+    <details><summary>Detalhes</summary><pre class="log" id="log"></pre></details>
+  </section>
+
+  <section class="panel hidden" id="resultPanel">
+    <div class="grid2">
+      <div>
+        <video id="player" controls playsinline preload="metadata"></video>
+        <div class="actions">
+          <a id="download" style="flex:1"><button style="width:100%">⬇️ Baixar MP4</button></a>
+          <button class="secondary" id="share">Compartilhar</button>
+        </div>
+      </div>
+      <div>
+        <h2 id="planTitle">Plano de edição</h2>
+        <p id="planSummary" style="color:var(--muted);margin-top:0"></p>
+        <label for="feedback">Peça ajustes à IA</label>
+        <textarea id="feedback" placeholder="Ex.: deixe mais curto, comece pelo aplauso, tire o trecho escuro, coloque o nome da palestrante..."></textarea>
+        <div class="actions"><button id="revise">🔁 Revisar e renderizar</button></div>
+        <details><summary>Ver cortes escolhidos</summary>
+          <div class="timeline" id="timeline"></div>
+          <div id="segments"></div>
+        </details>
+        <details><summary>Editar plano manualmente (avançado)</summary>
+          <textarea id="planJson" style="min-height:260px;font-family:ui-monospace,monospace;font-size:12px"></textarea>
+          <div class="actions"><button class="secondary" id="saveJson">Renderizar este plano</button></div>
+        </details>
+        <div class="actions"><button class="danger" id="del">Excluir projeto</button></div>
+      </div>
+    </div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const COLORS = ["#7c5cff","#2f9bff","#2fbf71","#ffb020","#ff5c7a","#19c2c2","#c25cff","#8fbf2f"];
+const BUSY = ["na fila","analisando","planejando","renderizando"];
+let pid = new URLSearchParams(location.search).get("p");
+let files = [], timer = null, lastPlanJson = "", lastVideo = 0;
+
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  if (r.status === 401) { location.href = "/login"; throw new Error("login"); }
+  return r;
+}
+
+// ---------- navegação
+function showHome() {
+  pid = null; clearInterval(timer); history.replaceState(null, "", "/");
+  ["jobPanel","resultPanel"].forEach(i => $(i).classList.add("hidden"));
+  ["newPanel","listPanel"].forEach(i => $(i).classList.remove("hidden"));
+  loadProjects();
+}
+function openProject(id) {
+  pid = id; lastPlanJson = ""; lastVideo = 0; history.replaceState(null, "", "?p=" + id);
+  ["newPanel","listPanel","resultPanel"].forEach(i => $(i).classList.add("hidden"));
+  $("player").removeAttribute("src");
+  poll(); scrollTo(0, 0);
+}
+$("home").onclick = showHome;
+$("newBtn").onclick = e => { e.preventDefault(); showHome(); $("brief").focus(); };
+
+async function loadProjects() {
+  const list = await (await api("/api/projects")).json();
+  $("projects").innerHTML = list.length ? list.map(p => `
+    <div class="card" onclick="openProject('${p.id}')">
+      <div class="th" style="background-image:url('/api/projects/${p.id}/thumb')"></div>
+      <div class="info"><b>${esc(p.title)}</b><span>${new Date(p.created * 1000).toLocaleDateString("pt-BR")} · ${p.aspect || ""} · ${p.status}</span></div>
+    </div>`).join("") : `<p class="empty">Nenhum vídeo ainda.</p>`;
+}
+
+// ---------- upload
+const drop = $("drop");
+drop.onclick = () => $("clips").click();
+$("clips").onchange = e => setFiles([...e.target.files]);
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); setFiles([...e.dataTransfer.files].filter(f => f.type.startsWith("video"))); };
+function setFiles(f) {
+  files = f;
+  const mb = f.reduce((a, x) => a + x.size, 0) / 1e6;
+  $("fileList").textContent = f.length ? `${f.length} arquivo(s), ${mb.toFixed(0)} MB — ` + f.map(x => x.name).join(" · ") : "";
+}
+
+$("go").onclick = () => {
+  if (!files.length) return alert("Escolha pelo menos um corte de vídeo.");
+  const fd = new FormData();
+  files.forEach(f => fd.append("clips", f));
+  if ($("music").files[0]) fd.append("music", $("music").files[0]);
+  fd.append("brief", $("brief").value);
+  fd.append("aspect", $("aspect").value);
+  if ($("seconds").value) fd.append("target_seconds", $("seconds").value);
+  fd.append("captions", $("captions").value);
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/api/projects");
+  $("go").disabled = true; $("upWrap").classList.remove("hidden");
+  xhr.upload.onprogress = e => {
+    if (!e.lengthComputable) return;
+    const p = e.loaded / e.total;
+    $("upBar").style.width = (p * 100).toFixed(0) + "%";
+    $("upTxt").textContent = p < 1 ? `Enviando ${(e.loaded / 1e6).toFixed(0)} de ${(e.total / 1e6).toFixed(0)} MB — mantenha a tela aberta` : "Recebido, preparando...";
+  };
+  xhr.onload = () => {
+    $("go").disabled = false; $("upWrap").classList.add("hidden");
+    if (xhr.status === 401) return location.href = "/login";
+    if (xhr.status >= 300) return alert("Erro ao enviar: " + xhr.responseText);
+    setFiles([]); $("clips").value = ""; $("brief").value = ""; $("music").value = "";
+    openProject(JSON.parse(xhr.responseText).id);
+  };
+  xhr.onerror = () => { $("go").disabled = false; alert("Falha de conexão no envio. Tente de novo (de preferência no Wi-Fi)."); };
+  xhr.send(fd);
+};
+
+// ---------- projeto
+$("revise").onclick = async () => {
+  if (!$("feedback").value.trim()) return $("feedback").focus();
+  const r = await api(`/api/projects/${pid}/revise`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ feedback: $("feedback").value }) });
+  if (!r.ok) return alert((await r.json()).detail);
+  $("feedback").value = ""; poll(); scrollTo(0, 0);
+};
+$("saveJson").onclick = async () => {
+  let plan; try { plan = JSON.parse($("planJson").value); } catch (e) { return alert("JSON inválido: " + e.message); }
+  const r = await api(`/api/projects/${pid}/plan`, { method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(plan) });
+  if (!r.ok) return alert(await r.text());
+  poll(); scrollTo(0, 0);
+};
+$("del").onclick = async () => {
+  if (!confirm("Excluir este projeto e o vídeo?")) return;
+  const r = await api(`/api/projects/${pid}`, { method: "DELETE" });
+  if (!r.ok) return alert((await r.json()).detail);
+  showHome();
+};
+$("share").onclick = async () => {
+  try {
+    const blob = await (await api(`/api/projects/${pid}/video`)).blob();
+    const file = new File([blob], "video.mp4", { type: "video/mp4" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] });
+    else alert("Seu navegador não permite compartilhar arquivos. Use 'Baixar MP4'.");
+  } catch (e) { if (e.name !== "AbortError") alert("Não foi possível compartilhar: " + e.message); }
+};
+
+function poll() { clearInterval(timer); tick(); timer = setInterval(tick, 2000); }
+async function tick() {
+  if (!pid) return;
+  const r = await api(`/api/projects/${pid}`);
+  if (!r.ok) { clearInterval(timer); alert("Projeto não encontrado"); return showHome(); }
+  const s = await r.json();
+  const busy = BUSY.includes(s.status);
+  $("jobPanel").classList.toggle("hidden", !busy && s.status !== "erro");
+  $("status").textContent = "— " + s.status + (s.error ? ": " + s.error : "");
+  $("status").className = "status " + s.status;
+  $("bar").style.width = Math.round((s.progress || 0) * 100) + "%";
+  $("log").textContent = (s.log || []).join("\n"); $("log").scrollTop = 1e9;
+  $("revise").disabled = $("saveJson").disabled = $("del").disabled = busy;
+  if (s.plan) showPlan(s.plan, s.clips);
+  if (s.has_video && s.video_version !== lastVideo) {
+    lastVideo = s.video_version;
+    $("resultPanel").classList.remove("hidden");
+    $("player").src = `/api/projects/${pid}/video?v=${s.video_version}`;
+    $("download").href = `/api/projects/${pid}/video?download=1&v=${s.video_version}`;
+  }
+  if (!busy) clearInterval(timer);
+}
+
+function showPlan(plan, clips) {
+  const j = JSON.stringify(plan, null, 1);
+  if (j === lastPlanJson) return;
+  lastPlanJson = j;
+  $("resultPanel").classList.remove("hidden");
+  $("planTitle").textContent = plan.title;
+  $("planSummary").textContent = plan.summary;
+  const color = Object.fromEntries(clips.map((c, i) => [c.id, COLORS[i % COLORS.length]]));
+  const name = Object.fromEntries(clips.map(c => [c.id, c.filename]));
+  const durs = plan.segments.map(s => (s.end - s.start) / s.speed);
+  const total = durs.reduce((a, b) => a + b, 0);
+  $("timeline").innerHTML = plan.segments.map((s, i) =>
+    `<div style="flex:${durs[i]};background:${color[s.clip_id] || "#555"}" title="${esc(s.reason)}">${s.clip_id}</div>`).join("");
+  $("segments").innerHTML = plan.segments.map((s, i) => `
+    <div class="seg" style="border-color:${color[s.clip_id] || "#555"}">
+      <b>${i + 1}. ${s.clip_id}</b> ${s.start.toFixed(1)}–${s.end.toFixed(1)}s
+      <span class="pill">${s.transition_in}</span>${s.speed !== 1 ? `<span class="pill">${s.speed}x</span>` : ""}
+      ${s.motion !== "none" ? `<span class="pill">${s.motion}</span>` : ""}${s.framing !== "fill" ? `<span class="pill">fundo desfocado</span>` : ""}
+      <small>${esc(name[s.clip_id] || "")} — ${esc(s.reason)}</small>
+      ${s.overlays.map(o => `<small>📝 "${esc(o.text)}"</small>`).join("")}
+    </div>`).join("") + `<small style="color:var(--muted)">≈ ${total.toFixed(1)}s · look ${plan.look} · legendas ${plan.captions}</small>`;
+  $("planJson").value = j;
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+if (pid) openProject(pid); else loadProjects();
+</script>
+</body>
+</html>
